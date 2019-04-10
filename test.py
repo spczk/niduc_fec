@@ -48,7 +48,11 @@ for _ in range(BCH_BITS):
 data, ecc = packet[:-bch.ecc_bytes], packet[-bch.ecc_bytes:]
 
 # correct
+
+#BCH
 bitflips = bch.decode_inplace(data, ecc)
+
+#RS
 # packet = rs.decode(packet)
 
 initial_data_len = len(set(initial_data))
