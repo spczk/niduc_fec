@@ -5,13 +5,6 @@ import random
 from reedsolo import RSCodec
 from bitstring import BitArray
 
-data_bytes = 512
-
-# random data
-data = bytearray(os.urandom(data_bytes))
-initial_data = data
-# print(data)
-
 # create a bch object
 BCH_POLYNOMIAL = 8219
 BCH_BITS = 16
@@ -21,6 +14,9 @@ rs = RSCodec(10)
 error_chance = 0.01
 errors = 0
 
+
+def chunk(l, chunk_size):
+    return [l[i:i + chunk_size] for i in range(0, len(l), chunk_size)]
 
 
 # BCH
@@ -120,29 +116,84 @@ def chooseChannel(channel, packet, error_chance, errors):
     else:
         return bscTransmit(packet, error_chance, errors)
 
+print ('Jak duzo danych chcesz wygenerowac i przeslac (w bajtach)?')
+data_bytes = int(input())
+too_big = False
+if data_bytes > 512:
+    too_big = True
+# random data
+data = bytearray(os.urandom(data_bytes))
+
+if too_big:
+    initial_data = chunk(data, 512)
+    print (len(initial_data))
+else:
+    initial_data = data
+
+initial_data_len = len(set(data))
+
 print('Wybierz kodowanie: \n1) BSC\n2) Gillberta \n')
 channelValue = input()
 
 print('Wybierz kodowanie: \n1) bch\n2) reed-solomon \n3) potrajanie bitu \n')
 codingValue = input()
 if codingValue == "2":
-    packet = rsEncode(data)
-    packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
-    packet = rsDecode(packet)
+    if too_big:
+        packet = bytearray()
+        errors = 0
+        overflow_generated = 0
+        for chunk in initial_data:
+            piece = rsEncode(chunk)
+            overflow_generated = overflow_generated + (len(set(piece)) - len(set(chunk)))
+            piece, err = chooseChannel(channelValue,piece, error_chance, errors)
+            piece = rsDecode(piece)
+            packet = packet + piece
+            errors = errors + err 
+    else:
+        packet = rsEncode(initial_data)
+        packet_len = len(set(packet))
+        overflow_generated = packet_len - initial_data_len
+        packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
+        packet = rsDecode(packet)
 elif codingValue == "3":
-    packet = threesEncode(data)
-    packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
-    packet = threesDecode(packet)
+    if too_big:
+        packet = bytearray()
+        errors = 0
+        overflow_generated = 0
+        for chunk in initial_data:
+            piece = threesEncode(chunk)
+            overflow_generated = overflow_generated + (len(set(piece)) - len(set(chunk)))
+            piece, err = chooseChannel(channelValue,piece, error_chance, errors)
+            piece = threesDecode(piece)
+            packet = packet + piece
+            errors = errors + err 
+    else:
+        packet = threesEncode(initial_data)
+        packet_len = len(set(packet))
+        overflow_generated = packet_len - initial_data_len
+        packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
+        packet = threesDecode(packet)
 else:
-    packet = bchEncode(data)
-    packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
-    packet, ecc = bchDecode(packet)
+    if too_big:
+        packet = bytearray()
+        errors = 0
+        overflow_generated = 0
+        for chunk in initial_data:
+            piece = bchEncode(chunk)
+            overflow_generated = overflow_generated + (len(set(piece)) - len(set(chunk)))
+            piece, err = chooseChannel(channelValue,piece, error_chance, errors)
+            piece, ecc = bchDecode(piece)
+            packet = packet + piece
+            errors = errors + err
+    else:
+        packet = bchEncode(initial_data)
+        packet_len = len(set(packet))
+        overflow_generated = packet_len - initial_data_len
+        packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
+        packet, ecc = bchDecode(packet)
 
 
-initial_data_len = len(set(initial_data))
-compared_data_len = len(set(initial_data) & set(packet))
-packet_len = len(set(packet))
-overflow_generated = packet_len - initial_data_len
+compared_data_len = len(set(data) & set(packet))
 
 # print('bitflips: %d' % (bitflips))
 print('\nerrors generated: %d' % (errors))
