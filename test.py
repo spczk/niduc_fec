@@ -3,8 +3,9 @@ import hashlib
 import os
 import random
 from reedsolo import RSCodec
+from bitstring import BitArray
 
-data_bytes = 240
+data_bytes = 512
 
 # random data
 data = bytearray(os.urandom(data_bytes))
@@ -15,7 +16,7 @@ initial_data = data
 BCH_POLYNOMIAL = 8219
 BCH_BITS = 16
 bch = bchlib.BCH(BCH_POLYNOMIAL, BCH_BITS)
-rs = RSCodec(data_bytes)
+rs = RSCodec(10)
 
 error_chance = 0.01
 errors = 0
@@ -32,10 +33,17 @@ def rsEncode(data):
     return rs.encode(data)
     
 def threesEncode(data):
-    for b in range(len(data)):
-        data.insert(len(data)-b ,data[len(data)-b])
-        data.insert(len(data)-b ,data[len(data)-b])
-    return data
+    c = BitArray(auto=data)
+    bits = c.bin[2:]
+    data_len = len(bits)
+    new_data = ""
+    for b in range(data_len):
+        new_data+=str(bits[b])
+        new_data+=str(bits[b])
+        new_data+=str(bits[b])
+        # data.insert(len(data)-b ,data[len(data)-b])
+        # data.insert(len(data)-b ,data[len(data)-b])
+    return new_data, bits
 
 #def bitflip(packet):
 #    byte_num = random.randint(0, len(packet) - 1)
@@ -55,8 +63,7 @@ def rsDecode(packet):
     return rs.decode(packet)
     
 def threesDecode(packet):
-    count = 0
-    dataToReturn = bytearray(len(packet)/3)
+    dataToReturn = ""
     for x in range(0, len(packet), 3):
         zeroCount = 0 
         oneCount = 0
@@ -66,9 +73,9 @@ def threesDecode(packet):
             else:
                 oneCount += 1
         if(oneCount > zeroCount):
-            dataToReturn[x/3] = 1
+            dataToReturn+="1"
         else:
-            dataToReturn[x/3] = 0
+            dataToReturn+="0"
     return dataToReturn
 
     
@@ -91,22 +98,45 @@ def bscTransmit(packet, error_chance, errors):
                 packet[b] = 0
     return packet, errors
 
+
+def gillbertTransmit(packet, error_chance, errors):
+    leave_chance = 0.4
+    inside = False
+    for b in range(len(packet)):
+        if random.random() < error_chance or inside:
+            inside = True
+            errors += 1
+            if packet[b] == 0:
+                packet[b] = 1
+            else:
+                packet[b] = 0
+            if random.random() < leave_chance:
+                inside = False
+    return packet, errors
+
+def chooseChannel(channel, packet, error_chance, errors):
+    if channel == "2":
+        return gillbertTransmit(packet, error_chance, errors)
+    else:
+        return bscTransmit(packet, error_chance, errors)
+
+print('Wybierz kodowanie: \n1) BSC\n2) Gillberta \n')
+channelValue = input()
+
 print('Wybierz kodowanie: \n1) bch\n2) reed-solomon \n3) potrajanie bitu \n')
-inputValue = input()
-if inputValue == 2:
+codingValue = input()
+if codingValue == "2":
     packet = rsEncode(data)
-    packet, errors = bscTransmit(packet, error_chance, errors)
+    packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
     packet = rsDecode(packet)
-if inputValue == 3:
+elif codingValue == "3":
     packet = threesEncode(data)
-    packet, errors = bscTransmit(packet, error_chance, errors)
+    packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
     packet = threesDecode(packet)
 else:
     packet = bchEncode(data)
-    packet, errors = bscTransmit(packet, error_chance, errors)
+    packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
     packet, ecc = bchDecode(packet)
-
-
 
 
 initial_data_len = len(set(initial_data))
