@@ -9,7 +9,6 @@ from bitstring import BitArray
 BCH_POLYNOMIAL = 8219
 BCH_BITS = 16
 bch = bchlib.BCH(BCH_POLYNOMIAL, BCH_BITS)
-rs = RSCodec(10)
 
 error_chance = 0.01
 errors = 0
@@ -36,23 +35,15 @@ def rsEncode(data):
     
 def threesEncode(data):
     c = BitArray(auto=data)
-    bits = c.bin[2:]
+    bits = c.bin
     data_len = len(bits)
-    new_data = ""
+    new_data = list()
     for b in range(data_len):
-        new_data+=str(bits[b])
-        new_data+=str(bits[b])
-        new_data+=str(bits[b])
-        # data.insert(len(data)-b ,data[len(data)-b])
-        # data.insert(len(data)-b ,data[len(data)-b])
-    return new_data, bits
+        new_data.append(int(bits[b]))
+        new_data.append(int(bits[b]))
+        new_data.append(int(bits[b]))
+    return new_data
 
-#def bitflip(packet):
-#    byte_num = random.randint(0, len(packet) - 1)
-#    bit_num = random.randint(0, 7)
-#    packet[byte_num] ^= (1 << bit_num)
-
-# de-packetize - bch
 def bchDecode(packet):
     data = packet[:-bch.ecc_bytes]
     ecc = packet[-bch.ecc_bytes:]
@@ -78,18 +69,9 @@ def threesDecode(packet):
             dataToReturn+="1"
         else:
             dataToReturn+="0"
-    return dataToReturn
+    c = BitArray(bin=dataToReturn)
+    return c.bytes
 
-    
-
-        
-
-
-# make BCH_BITS errors
-#for _ in range(BCH_BITS):
-#    if random.random() < error_chance:
-#        bitflip(packet)
-#        errors += 1
 def bscTransmit(packet, error_chance, errors):
     for b in range(len(packet)):
         if random.random() < error_chance:
@@ -132,8 +114,11 @@ data = bytearray(os.urandom(data_bytes))
 
 if too_big:
     initial_data = chunk(data, 512)
+    codec_num = int(data_bytes/1000) + 10
+    rs = RSCodec(codec_num)
 else:
     initial_data = data
+    rs = RSCodec(10)
 
 initial_data_len = len(data)
 
@@ -169,14 +154,18 @@ elif codingValue == "3":
         overflow_generated = 0
         for chunk in initial_data:
             piece = threesEncode(chunk)
-            overflow_generated = overflow_generated + (len(piece) - len(chunk))
+            bitstr = ''.join(str(x) for x in piece)
+            p = BitArray(bin=bitstr)
+            overflow_generated = overflow_generated + (len(p.bytes) - len(chunk))
             piece, err = chooseChannel(channelValue,piece, error_chance, err)
             piece = threesDecode(piece)
             packet = packet + piece
             errors = errors + err 
     else:
         packet = threesEncode(initial_data)
-        packet_len = len(packet)
+        bitstr = ''.join(str(x) for x in packet)
+        p = BitArray(bin=bitstr)
+        packet_len = len(p.bytes)
         overflow_generated = packet_len - initial_data_len
         packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
         packet = threesDecode(packet)
@@ -203,8 +192,6 @@ else:
 
 compared_data_len = compare(data, packet)
 
-
-# print('bitflips: %d' % (bitflips))
 print('\nerrors generated: %d' % (errors))
 print('data elements generated: %d' % (initial_data_len))
 print('data elements correct after operation: %d' % (compared_data_len))
