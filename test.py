@@ -126,7 +126,6 @@ data = bytearray(os.urandom(data_bytes))
 
 if too_big:
     initial_data = chunk(data, 512)
-    print (len(initial_data))
 else:
     initial_data = data
 
@@ -141,11 +140,12 @@ if codingValue == "2":
     if too_big:
         packet = bytearray()
         errors = 0
+        err = 0
         overflow_generated = 0
         for chunk in initial_data:
             piece = rsEncode(chunk)
             overflow_generated = overflow_generated + (len(set(piece)) - len(set(chunk)))
-            piece, err = chooseChannel(channelValue,piece, error_chance, errors)
+            piece, err = chooseChannel(channelValue,piece, error_chance, err)
             piece = rsDecode(piece)
             packet = packet + piece
             errors = errors + err 
@@ -159,11 +159,12 @@ elif codingValue == "3":
     if too_big:
         packet = bytearray()
         errors = 0
+        err = 0
         overflow_generated = 0
         for chunk in initial_data:
             piece = threesEncode(chunk)
             overflow_generated = overflow_generated + (len(set(piece)) - len(set(chunk)))
-            piece, err = chooseChannel(channelValue,piece, error_chance, errors)
+            piece, err = chooseChannel(channelValue,piece, error_chance, err)
             piece = threesDecode(piece)
             packet = packet + piece
             errors = errors + err 
@@ -177,11 +178,12 @@ else:
     if too_big:
         packet = bytearray()
         errors = 0
+        err = 0
         overflow_generated = 0
         for chunk in initial_data:
             piece = bchEncode(chunk)
             overflow_generated = overflow_generated + (len(set(piece)) - len(set(chunk)))
-            piece, err = chooseChannel(channelValue,piece, error_chance, errors)
+            piece, err = chooseChannel(channelValue,piece, error_chance, err)
             piece, ecc = bchDecode(piece)
             packet = packet + piece
             errors = errors + err
