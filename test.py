@@ -18,6 +18,12 @@ errors = 0
 def chunk(l, chunk_size):
     return [l[i:i + chunk_size] for i in range(0, len(l), chunk_size)]
 
+def compare(a, b):
+    correct = 0
+    for i in range(len(a)):
+        if a[i] == b[i]:
+            correct = correct + 1
+    return correct
 
 # BCH
 def bchEncode(data):
@@ -52,7 +58,7 @@ def bchDecode(packet):
     ecc = packet[-bch.ecc_bytes:]
     # correct
     bch.decode_inplace(data, ecc)
-    return packet, ecc
+    return data, ecc
 
 #RS
 def rsDecode(packet):
@@ -129,7 +135,7 @@ if too_big:
 else:
     initial_data = data
 
-initial_data_len = len(set(data))
+initial_data_len = len(data)
 
 print('Wybierz kodowanie: \n1) BSC\n2) Gillberta \n')
 channelValue = input()
@@ -144,14 +150,14 @@ if codingValue == "2":
         overflow_generated = 0
         for chunk in initial_data:
             piece = rsEncode(chunk)
-            overflow_generated = overflow_generated + (len(set(piece)) - len(set(chunk)))
+            overflow_generated = overflow_generated + (len(piece) - len(chunk))
             piece, err = chooseChannel(channelValue,piece, error_chance, err)
             piece = rsDecode(piece)
             packet = packet + piece
             errors = errors + err 
     else:
         packet = rsEncode(initial_data)
-        packet_len = len(set(packet))
+        packet_len = len(packet)
         overflow_generated = packet_len - initial_data_len
         packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
         packet = rsDecode(packet)
@@ -163,14 +169,14 @@ elif codingValue == "3":
         overflow_generated = 0
         for chunk in initial_data:
             piece = threesEncode(chunk)
-            overflow_generated = overflow_generated + (len(set(piece)) - len(set(chunk)))
+            overflow_generated = overflow_generated + (len(piece) - len(chunk))
             piece, err = chooseChannel(channelValue,piece, error_chance, err)
             piece = threesDecode(piece)
             packet = packet + piece
             errors = errors + err 
     else:
         packet = threesEncode(initial_data)
-        packet_len = len(set(packet))
+        packet_len = len(packet)
         overflow_generated = packet_len - initial_data_len
         packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
         packet = threesDecode(packet)
@@ -182,20 +188,21 @@ else:
         overflow_generated = 0
         for chunk in initial_data:
             piece = bchEncode(chunk)
-            overflow_generated = overflow_generated + (len(set(piece)) - len(set(chunk)))
+            overflow_generated = overflow_generated + (len(piece) - len(chunk))
             piece, err = chooseChannel(channelValue,piece, error_chance, err)
             piece, ecc = bchDecode(piece)
             packet = packet + piece
             errors = errors + err
     else:
         packet = bchEncode(initial_data)
-        packet_len = len(set(packet))
+        packet_len = len(packet)
         overflow_generated = packet_len - initial_data_len
         packet, errors = chooseChannel(channelValue,packet, error_chance, errors)
         packet, ecc = bchDecode(packet)
 
 
-compared_data_len = len(set(data) & set(packet))
+compared_data_len = compare(data, packet)
+
 
 # print('bitflips: %d' % (bitflips))
 print('\nerrors generated: %d' % (errors))
